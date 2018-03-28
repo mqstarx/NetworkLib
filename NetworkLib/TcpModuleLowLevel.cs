@@ -9,7 +9,8 @@ using System.Threading.Tasks;
 
 namespace NetworkLib
 {
-   
+
+    public delegate void EventHandlerLowLevelNet(byte[] buffer, TcpModuleLowLevel tcpClient);
     public class TcpModuleLowLevel
     {
         private TcpListener m_TcpListener;
@@ -22,10 +23,11 @@ namespace NetworkLib
         private string m_Info;
         private bool m_StopServerFlag = false;
 
-        public event EventHandler DataRecieved;
+        public event EventHandlerLowLevelNet DataRecieved;
         public event EventHandler Error;
-      
-        private int m_BufferSize = 8192;
+        public event EventHandler ConnectionLost;
+       
+        private int m_BufferSize = 60000;
 
         public int BufferSize
         {
@@ -47,16 +49,43 @@ namespace NetworkLib
 
         public void StartServer(int port)
         {
-            m_Port = port;
-            m_Info = "OnServer";
-            m_ServerThread = new Thread(new ThreadStart(StartServerThread));
-            m_ServerThread.Start();
+            if (m_TcpListener == null)
+            {
+                try
+                {
+                    m_Port = port;
+                    m_Info = "OnServer";
+                    m_TcpListener = new TcpListener(IPAddress.Any, m_Port);
+                    m_TcpListener.Start();
+                    m_ServerThread = new Thread(new ThreadStart(StartServerThread));
+                    m_ServerThread.Start();
+                }
+                catch(Exception e)
+                {
+                    if (Error != null)
+                        Error(m_Info + " : " + e.Message, null);
+                }
+            }
         }
         public void StopServer()
         {
-            m_StopServerFlag = true;
-            m_TcpListener.Stop();
-            m_ServerThread.Abort();
+            if (m_TcpListener != null)
+            {
+                m_StopServerFlag = true;
+
+               
+                if (m_TcpClient != null)
+                {
+                    m_TcpClient.GetStream().Close();
+                    m_TcpClient.Close();
+                }
+
+                m_TcpListener.Stop();
+                m_TcpListener = null;
+                if(m_ServerThread!=null)
+                m_ServerThread.Abort();
+            }
+      
         }
       
       
@@ -65,16 +94,21 @@ namespace NetworkLib
 
             try
             {
-                m_TcpListener = new TcpListener(IPAddress.Any, m_Port);
-                m_TcpListener.Start();
+               
                
                 while (!m_StopServerFlag)
                 {
+                    NetworkStream stream=null;
+                    try
+                    {
+                        m_TcpClient = m_TcpListener.AcceptTcpClient();
+                        m_TcpClient.SendBufferSize = m_BufferSize;
+                        m_TcpClient.ReceiveBufferSize = m_BufferSize;
+                        stream= m_TcpClient.GetStream();
+                    }
+                    catch
+                    { }
                    
-                    m_TcpClient = m_TcpListener.AcceptTcpClient();
-                    m_TcpClient.SendBufferSize = m_BufferSize;
-                    m_TcpClient.ReceiveBufferSize = m_BufferSize;
-                    NetworkStream stream = m_TcpClient.GetStream();
                     bool is_error = false;
                     int r=0;
                     while (!is_error && !m_StopServerFlag)
@@ -95,7 +129,7 @@ namespace NetworkLib
                         {
                             
                             if (DataRecieved != null && !is_error && r>0)
-                                DataRecieved(new object[] { this, buffer }, null);
+                                DataRecieved(buffer,this);
                             if (r == 0)
                                 is_error = true;
                         }
@@ -149,7 +183,7 @@ namespace NetworkLib
                     catch(Exception e)
                     {
                         if (Error != null)
-                            Error(m_Info + " : " + e.Message, null);
+                           Error(m_Info + " : " + e.Message, null);
                         is_error = true;
                     }
                     finally
@@ -157,7 +191,11 @@ namespace NetworkLib
                         if (DataRecieved != null && !is_error && r > 0)
                             DataRecieved(buffer, null);
                         if (r == 0)
+                        {
                             is_error = true;
+                            if (ConnectionLost != null)
+                                ConnectionLost(null, null);
+                        }
                     }
                 }
             }

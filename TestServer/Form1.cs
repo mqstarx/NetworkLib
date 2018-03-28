@@ -8,6 +8,8 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using NetworkLib;
+using System.Net.Sockets;
+
 namespace TestServer
 {
     public partial class Form1 : Form
@@ -21,6 +23,7 @@ namespace TestServer
         private void button1_Click(object sender, EventArgs e)
         {
             tcp = new TcpModuleLowLevel();
+          
             tcp.DataRecieved += Tcp_DataRecievedToServer;
             tcp.Error += Tcp_Error;
             tcp.StartServer(5454);
@@ -28,20 +31,18 @@ namespace TestServer
 
         private void Tcp_Error(object sender, EventArgs e)
         {
-            this.Invoke((new Action(() => MessageBox.Show(sender.ToString()))));
+            //this.Invoke((new Action(() => MessageBox.Show(sender.ToString()))));
         }
 
-        private void Tcp_DataRecievedToServer(object sender, EventArgs e)
+        private void Tcp_DataRecievedToServer(byte[] buffer,TcpModuleLowLevel tcp)
         {
-            object[] obj = (object[])sender;
-            TcpModuleLowLevel tcp = (TcpModuleLowLevel)obj[0];
-            byte[] buffer = (byte[])obj[1];
+           
 
             tcp.SendData(new byte[] { 1, 2, 3, 4, 5 });
         }
 
         private void Form1_FormClosing(object sender, FormClosingEventArgs e)
-        {
+        {if(tcp!=null)
             tcp.StopServer();
         }
 

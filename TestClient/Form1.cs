@@ -5,6 +5,7 @@ using System.ComponentModel;
 using System.Data;
 using System.Drawing;
 using System.Linq;
+using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -24,6 +25,7 @@ namespace TestClient
             tcp = new TcpModuleLowLevel();
             tcp.DataRecieved += Tcp_DataRecieved;
             tcp.Error += Tcp_Error;
+           
             tcp.ConnectToServer("192.168.100.13", 5454);
             
         }
@@ -33,7 +35,7 @@ namespace TestClient
             this.Invoke((new Action(() => MessageBox.Show(sender.ToString()))));
         }
 
-        private void Tcp_DataRecieved(object sender, EventArgs e)
+        private void Tcp_DataRecieved(byte[] buffer, TcpModuleLowLevel tcp)
         {
            
         }
