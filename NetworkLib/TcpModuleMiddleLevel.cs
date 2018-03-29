@@ -4,11 +4,13 @@ using System.IO;
 using System.Linq;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace NetworkLib
 {
     public delegate void TcpMiddleDataRecieved(object obj, TcpModuleMiddleLevel tcp);
+    public delegate void TcpSendProgress(int uid, int all_count, int cur);
     public class TcpModuleMiddleLevel
     {
         //Протокол: 0-й байт идентификатор пакета 24
@@ -22,6 +24,8 @@ namespace NetworkLib
         private List<object[]> m_RecievedQueue;
 
         public event TcpMiddleDataRecieved DataRecieved;
+        public event EventHandler ConnectionLost;
+        public event TcpSendProgress TcpSendProgress;
 
         public TcpModuleMiddleLevel()
         {
@@ -34,27 +38,31 @@ namespace NetworkLib
 
         private void M_TcpLow_DataRecieved(byte[] buffer, TcpModuleLowLevel tcpClient)
         {
-           if(buffer[0]==24)
+            if (buffer[0] == 24)
             {
-                TcpSession tcp_session = (TcpSession)ObjectFromByteArray(buffer,3,CalculatePacketLen(new byte[] {buffer[1],buffer[2] }));
+                TcpSession tcp_session = (TcpSession)ObjectFromByteArray(buffer, 3, CalculatePacketLen(new byte[] { buffer[1], buffer[2] }));
+              
 
                 bool uid_find = false;
-                for(int i=0;i< m_RecievedQueue.Count;i++)
+                for (int i = 0; i < m_RecievedQueue.Count; i++)
                 {
-                    if((int)m_RecievedQueue[i][0]==tcp_session.PacketsUid) // если пакеты с таким  uid уже есть
+                    if ((int)m_RecievedQueue[i][0] == tcp_session.PacketsUid) // если пакеты с таким  uid уже есть
                     {
                         uid_find = true;
-                        if( ((List<TcpSession>)m_RecievedQueue[i][1]).Count+1 == tcp_session.PacketsCount) // если все пакеты пришли
+                        if (((List<TcpSession>)m_RecievedQueue[i][1]).Count + 1 == tcp_session.PacketsCount) // если все пакеты пришли
                         {
                             byte[] obj_array = new byte[tcp_session.AllPacketsLen];
-                            for(int j=0; j<((List<TcpSession>)m_RecievedQueue[i][1]).Count;j++)
+                            for (int j = 0; j < ((List<TcpSession>)m_RecievedQueue[i][1]).Count; j++)
                             {
-                                Array.Copy(((List<TcpSession>)m_RecievedQueue[i][1])[j].Packet, 0, obj_array, 0, ((List<TcpSession>)m_RecievedQueue[i][1])[j].Packet.Length);
-                               
+                                if(j>0)
+                                Array.Copy(((List<TcpSession>)m_RecievedQueue[i][1])[j].Packet, 0, obj_array, j* ((List<TcpSession>)m_RecievedQueue[i][1])[j-1].Packet.Length, ((List<TcpSession>)m_RecievedQueue[i][1])[j].Packet.Length);
+                                else
+                                    Array.Copy(((List<TcpSession>)m_RecievedQueue[i][1])[j].Packet, 0, obj_array,0, ((List<TcpSession>)m_RecievedQueue[i][1])[j].Packet.Length);
 
                             }
+                            Array.Copy(tcp_session.Packet, 0, obj_array, obj_array.Length - tcp_session.Packet.Length,tcp_session.Packet.Length);
                             object recieved_object = ObjectFromByteArray(obj_array, 0, obj_array.Length);
-                            if (DataRecieved != null && recieved_object!=null)
+                            if (DataRecieved != null && recieved_object != null)
                                 DataRecieved(recieved_object, this);
 
                             m_RecievedQueue.RemoveAt(i);
@@ -66,23 +74,58 @@ namespace NetworkLib
                             tcp_session.IsPacketDelivered = true;
                             if (tcpClient == null) // значит сообщение пришло от сервера к клиенту
                             {
-                                
+
                                 SendPacket(tcp_session);
                             }
                             else
                             {
-                                SendPacket(tcp_session,tcpClient);
+                                SendPacket(tcp_session, tcpClient);
                             }
+                            
                         }
                     }
                 }
-                if(tcp_session.IsPacketDelivered && !uid_find) // если пришло поверждение отправки пакета
+                if (m_RecievedQueue.Count == 0 && !tcp_session.IsPacketDelivered )
                 {
-                    for(int i=0;i<m_SendQueue.Count;i++)
+                    if (!uid_find)
                     {
-                        if(m_SendQueue[i].PacketsUid == tcp_session.PacketsUid && m_SendQueue[i].CurrentPacketNumber==tcp_session.CurrentPacketNumber)
+                        m_RecievedQueue.Add(new object[] { tcp_session.PacketsUid, new List<TcpSession>() });
+                        ((List<TcpSession>)m_RecievedQueue[0][1]).Add(tcp_session);
+                    }
+                    tcp_session.IsPacketDelivered = true;
+                    if (tcpClient == null) // значит сообщение пришло от сервера к клиенту
+                    {
+
+                        SendPacket(tcp_session);
+                    }
+                    else
+                    {
+                        SendPacket(tcp_session, tcpClient);
+                    }
+                }
+                if (tcp_session.IsPacketDelivered && !uid_find) // если пришло поверждение отправки пакета
+                {
+                    for (int i = 0; i < m_SendQueue.Count; i++)
+                    {
+                        if (m_SendQueue[i].PacketsUid == tcp_session.PacketsUid && m_SendQueue[i].CurrentPacketNumber == tcp_session.CurrentPacketNumber)
                         {
                             m_SendQueue.RemoveAt(i);
+                            for(int j=0;j<m_SendQueue.Count; j++)
+                            {
+                                if (tcpClient == null) // значит сообщение пришло от сервера к клиенту
+                                {
+
+                                    SendPacket(m_SendQueue[j]);
+                                }
+                                else
+                                {
+                                    SendPacket(m_SendQueue[j], tcpClient);
+                                }
+                                if (TcpSendProgress != null)
+                                    TcpSendProgress(tcp_session.PacketsUid, tcp_session.PacketsCount, tcp_session.CurrentPacketNumber);
+                                break;
+                            }
+
                             break;
                         }
                     }
@@ -90,9 +133,9 @@ namespace NetworkLib
 
 
 
-               
+
             }
-             
+
         }
 
         public void StrarServer(int port)
@@ -120,10 +163,10 @@ namespace NetworkLib
             {
                 int uid = new Random((int)DateTime.Now.Ticks).Next();
                                          
-                byte[] obj_arr = TcpModuleMiddleLevel.GetByteArrayOfObject(obj);
+                byte[] obj_arr = GetByteArrayOfObject(obj);
                 int all_packet_len = obj_arr.Length;
-                int packets_count = all_packet_len / (m_TcpLow.BufferSize - 3); // вычисляем кол-во целых пакетов
-                if (all_packet_len % (m_TcpLow.BufferSize - 3) > 0) // если остаток от деления больше 0, значит добавляем еще один пакет
+                int packets_count = all_packet_len / (m_TcpLow.BufferSize - 500); // вычисляем кол-во целых пакетов
+                if (all_packet_len % (m_TcpLow.BufferSize - 500) > 0) // если остаток от деления больше 0, значит добавляем еще один пакет
                     packets_count += 1;
                
                 
@@ -135,55 +178,76 @@ namespace NetworkLib
                     tcp_add.IsPacketDelivered = false;
                     tcp_add.PacketsCount = packets_count;
                     tcp_add.PacketsUid = uid;
-                    tcp_add.Packet = new byte[m_TcpLow.BufferSize - 3];
+                    tcp_add.Packet = new byte[m_TcpLow.BufferSize - 500];
                     if (obj_arr.Length - i * tcp_add.Packet.Length < tcp_add.Packet.Length)
                     {
                         tcp_add.Packet = new byte[obj_arr.Length - i * tcp_add.Packet.Length];                    
                     }
                     
-                        Array.Copy(obj_arr, i * tcp_add.Packet.Length, tcp_add.Packet, 0, tcp_add.Packet.Length);
+                    if(i>0)
+                        Array.Copy(obj_arr,  i * m_SendQueue[i-1].Packet.Length, tcp_add.Packet, 0, tcp_add.Packet.Length);
+                    else
+                        Array.Copy(obj_arr, 0, tcp_add.Packet, 0, tcp_add.Packet.Length);
                     m_SendQueue.Add(tcp_add);
-                    if (m_SendQueue.Count == 1)
-                    {
-                        SendPacket(m_SendQueue[0]);
 
-                    }
+                  
+                   
+                   
                 }
+                if (m_SendQueue.Count >0)
+                {
+                    SendPacket(m_SendQueue[0]);
+
+                }
+
 
             }
         }
+        
         private void SendPacket(TcpSession packet)
         {
-            byte[] buffer = new byte[m_TcpLow.BufferSize];
+            Thread.Sleep(50);
+            byte[] packet_arr = GetByteArrayOfObject(packet);
+            byte[] buffer = new byte[packet_arr.Length+3];
+           
             buffer[0] = 24;
-            Array.Copy(TcpModuleMiddleLevel.GetPacketHeader(packet.Packet.Length), 0, buffer, 1, 2);
-            Array.Copy(TcpModuleMiddleLevel.GetByteArrayOfObject(packet), 0, buffer, 3, packet.Packet.Length);
+            Array.Copy(TcpModuleMiddleLevel.GetPacketHeader(buffer.Length-3), 0, buffer, 1, 2);
+            Array.Copy(packet_arr, 0, buffer, 3, packet_arr.Length);
             m_TcpLow.SendData(buffer);
 
         }
         private void SendPacket(TcpSession packet,TcpModuleLowLevel tcp)
         {
-            byte[] buffer = new byte[m_TcpLow.BufferSize];
+            byte[] packet_arr = GetByteArrayOfObject(packet);
+            byte[] buffer = new byte[packet_arr.Length + 3];
+
             buffer[0] = 24;
-            Array.Copy(TcpModuleMiddleLevel.GetPacketHeader(packet.Packet.Length), 0, buffer, 1, 2);
-            Array.Copy(TcpModuleMiddleLevel.GetByteArrayOfObject(packet), 0, buffer, 3, packet.Packet.Length);
+            Array.Copy(TcpModuleMiddleLevel.GetPacketHeader(buffer.Length - 3), 0, buffer, 1, 2);
+            Array.Copy(packet_arr, 0, buffer, 3, packet_arr.Length);
             tcp.SendData(buffer);
 
         }
-        public static byte[] GetByteArrayOfObject(object obj)
+        public  byte[] GetByteArrayOfObject(object obj)
         {
             BinaryFormatter _bf = new BinaryFormatter();
+            //_bf.TypeFormat = System.Runtime.Serialization.Formatters.FormatterTypeStyle.XsdString;
             MemoryStream _ms = new MemoryStream();
             _bf.Serialize(_ms, obj);
-            byte[] res =  _ms.ToArray();
+            byte[] res = new byte[_ms.Length];
+            _ms.Position = 0;
+            _ms.Read(res, 0, res.Length);
             _ms.Close();
+
+           // object test = ObjectFromByteArray(res,0,res.Length);
             return res;
         }
-        public static object ObjectFromByteArray(byte[] array,int header_offset,int len)
+        public object ObjectFromByteArray(byte[] array,int header_offset,int len)
         {
             BinaryFormatter _bf = new BinaryFormatter();
-            MemoryStream _ms = new MemoryStream();
+           // _bf.TypeFormat = System.Runtime.Serialization.Formatters.FormatterTypeStyle.XsdString;
+            MemoryStream _ms = new MemoryStream(len);
             _ms.Write(array, header_offset, len);
+            _ms.Position = 0;
             object res = _bf.Deserialize(_ms);
            
             _ms.Close();
@@ -191,7 +255,8 @@ namespace NetworkLib
         }
         private void M_TcpLow_ConnectionLost(object sender, EventArgs e)
         {
-            
+            if (ConnectionLost != null)
+                ConnectionLost(null, null);
         }
         public static int CalculatePacketLen(byte[] header)
         {

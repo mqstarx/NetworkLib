@@ -12,22 +12,38 @@ using System.Windows.Forms;
 
 namespace TestClient
 {
-    public partial class Form1 : Form
+    public partial class Client : Form
     {
-        TcpModuleLowLevel tcp;
-        public Form1()
+        TcpModuleLowLevelS tcp;
+        public Client()
         {
             InitializeComponent();
         }
 
         private void button1_Click(object sender, EventArgs e)
         {
-            tcp = new TcpModuleLowLevel();
-            tcp.DataRecieved += Tcp_DataRecieved;
-            tcp.Error += Tcp_Error;
+            tcp = new TcpModuleLowLevelS();
+            tcp.DataRecieved += Tcp_DataRecieved2;
+           // tcp.TcpSendProgress += Tcp_TcpSendProgress;
+            //tcp.Error += Tcp_Error;
            
             tcp.ConnectToServer("192.168.100.13", 5454);
             
+        }
+
+        private void Tcp_DataRecieved2(byte[] buffer, TcpModuleLowLevelS tcpClient)
+        {
+           
+        }
+
+        private void Tcp_TcpSendProgress(int uid, int all_count, int cur)
+        {
+            this.Invoke((new Action(() => label1.Text=uid+"||  "+all_count+@" \ "+cur )));
+        }
+
+        private void Tcp_DataRecieved1(object obj, TcpModuleMiddleLevel tcp)
+        {
+           
         }
 
         private void Tcp_Error(object sender, EventArgs e)
@@ -42,13 +58,13 @@ namespace TestClient
 
         private void button2_Click(object sender, EventArgs e)
         {
-            byte[] buffer = new byte[10];
-           
-            for(int i=0;i<buffer.Length;i++)
+            //  TestObject obj = new TestObject();
+            List<byte> arr = new List<byte>();
+            for(int i=0;i<10000000;i++)
             {
-                buffer[i] = 3;
+                arr.Add(23);
             }
-            tcp.SendData(buffer);
+            tcp.SendDataFromClient(arr.ToArray());
         }
 
         private void button3_Click(object sender, EventArgs e)

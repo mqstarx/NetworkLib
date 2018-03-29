@@ -27,7 +27,7 @@ namespace NetworkLib
         public event EventHandler Error;
         public event EventHandler ConnectionLost;
        
-        private int m_BufferSize = 60000;
+        private int m_BufferSize = 10000000;
 
         public int BufferSize
         {
@@ -116,8 +116,9 @@ namespace NetworkLib
 
                         byte[] buffer = new byte[m_BufferSize];
                         try
-                        {
-                           r=   stream.Read(buffer, 0, buffer.Length);
+                        { 
+                          
+                            r = stream.Read(buffer, 0, buffer.Length);
                         }
                         catch (Exception e)
                         {
@@ -152,7 +153,8 @@ namespace NetworkLib
                 m_Port = port;
                 m_ServerIp = ip;
                 m_TcpClient = new TcpClient();
-
+                m_TcpClient.SendBufferSize = m_BufferSize;
+                m_TcpClient.ReceiveBufferSize = m_BufferSize;
                 m_TcpClient.Connect(m_ServerIp, m_Port);
                 m_ReadThread = new Thread(new ThreadStart(ReadThread));
                 m_ReadThread.Start();
@@ -169,8 +171,7 @@ namespace NetworkLib
             try
             {
                 byte[] buffer = new byte[m_BufferSize];
-                m_TcpClient.SendBufferSize = m_BufferSize;
-                m_TcpClient.ReceiveBufferSize = m_BufferSize;
+               
                 NetworkStream stream = m_TcpClient.GetStream();
                 bool is_error = false;
                 int r = 0;

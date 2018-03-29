@@ -42,7 +42,9 @@
   <ItemGroup>
     <Compile Include="TcpModuleLowLevel.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="TcpModuleLowLevelS.cs" />
     <Compile Include="TcpModuleMiddleLevel.cs" />
+    <Compile Include="TestObject.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

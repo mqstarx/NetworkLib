@@ -12,21 +12,31 @@ using System.Net.Sockets;
 
 namespace TestServer
 {
-    public partial class Form1 : Form
+    public partial class Server : Form
     {
-        TcpModuleLowLevel tcp;
-        public Form1()
+        TcpModuleLowLevelS tcp;
+        public Server()
         {
             InitializeComponent();
         }
 
         private void button1_Click(object sender, EventArgs e)
         {
-            tcp = new TcpModuleLowLevel();
-          
-            tcp.DataRecieved += Tcp_DataRecievedToServer;
-            tcp.Error += Tcp_Error;
+            tcp = new  TcpModuleLowLevelS();
+
+            tcp.DataRecieved += Tcp_DataRecieved1; 
+          //  tcp.Error += Tcp_Error;
             tcp.StartServer(5454);
+        }
+
+        private void Tcp_DataRecieved1(byte[] buffer, TcpModuleLowLevelS tcpClient)
+        {
+            
+        }
+
+        private void Tcp_DataRecieved(object obj, TcpModuleMiddleLevel tcp)
+        {
+            
         }
 
         private void Tcp_Error(object sender, EventArgs e)
