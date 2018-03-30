@@ -15,19 +15,24 @@ namespace TestClient
     public partial class Client : Form
     {
         TcpModuleLowLevelS tcp;
+       
         public Client()
         {
             InitializeComponent();
+           
         }
+
+       
 
         private void button1_Click(object sender, EventArgs e)
         {
-            tcp = new TcpModuleLowLevelS();
-            tcp.DataRecieved += Tcp_DataRecieved2;
-           // tcp.TcpSendProgress += Tcp_TcpSendProgress;
-            //tcp.Error += Tcp_Error;
+             tcp = new TcpModuleLowLevelS();
+              tcp.DataRecieved += Tcp_DataRecieved2;
+             // tcp.TcpSendProgress += Tcp_TcpSendProgress;
+              //tcp.Error += Tcp_Error;
+
+              tcp.ConnectToServer("192.168.100.13", 5454);
            
-            tcp.ConnectToServer("192.168.100.13", 5454);
             
         }
 
@@ -60,11 +65,12 @@ namespace TestClient
         {
             //  TestObject obj = new TestObject();
             List<byte> arr = new List<byte>();
-            for(int i=0;i<10000000;i++)
+            for(int i=0;i<200000000;i++)
             {
-                arr.Add(23);
+                arr.Add(55);
             }
             tcp.SendDataFromClient(arr.ToArray());
+           
         }
 
         private void button3_Click(object sender, EventArgs e)

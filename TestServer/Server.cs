@@ -15,18 +15,23 @@ namespace TestServer
     public partial class Server : Form
     {
         TcpModuleLowLevelS tcp;
+       
         public Server()
         {
             InitializeComponent();
+        
         }
+
 
         private void button1_Click(object sender, EventArgs e)
         {
-            tcp = new  TcpModuleLowLevelS();
+               tcp = new  TcpModuleLowLevelS();
 
-            tcp.DataRecieved += Tcp_DataRecieved1; 
-          //  tcp.Error += Tcp_Error;
-            tcp.StartServer(5454);
+               tcp.DataRecieved += Tcp_DataRecieved1; 
+             //  tcp.Error += Tcp_Error;
+               tcp.StartServer(5454);
+
+           
         }
 
         private void Tcp_DataRecieved1(byte[] buffer, TcpModuleLowLevelS tcpClient)
@@ -58,7 +63,8 @@ namespace TestServer
 
         private void button2_Click(object sender, EventArgs e)
         {
-            tcp.StopServer();
+            if (tcp != null)
+                tcp.StopServer();
         }
     }
 }
