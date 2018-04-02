@@ -14,7 +14,7 @@ namespace TestServer
 {
     public partial class Server : Form
     {
-        TcpModuleLowLevelS tcp;
+        TcpModule tcp;
        
         public Server()
         {
@@ -25,36 +25,32 @@ namespace TestServer
 
         private void button1_Click(object sender, EventArgs e)
         {
-               tcp = new  TcpModuleLowLevelS();
+               tcp = new  TcpModule();
 
-               tcp.DataRecieved += Tcp_DataRecieved1; 
+            tcp.DataRecievedObject += Tcp_DataRecievedObject;
              //  tcp.Error += Tcp_Error;
                tcp.StartServer(5454);
 
            
         }
 
-        private void Tcp_DataRecieved1(byte[] buffer, TcpModuleLowLevelS tcpClient)
+        private void Tcp_DataRecievedObject(object obj, TcpModule tcpClient)
         {
             
         }
 
-        private void Tcp_DataRecieved(object obj, TcpModuleMiddleLevel tcp)
+        private void Tcp_DataRecieved1(byte[] buffer, TcpModule tcpClient)
         {
             
         }
 
+      
         private void Tcp_Error(object sender, EventArgs e)
         {
             //this.Invoke((new Action(() => MessageBox.Show(sender.ToString()))));
         }
 
-        private void Tcp_DataRecievedToServer(byte[] buffer,TcpModuleLowLevel tcp)
-        {
-           
-
-            tcp.SendData(new byte[] { 1, 2, 3, 4, 5 });
-        }
+      
 
         private void Form1_FormClosing(object sender, FormClosingEventArgs e)
         {if(tcp!=null)

@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
+using System.Runtime.Serialization.Formatters.Binary;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -10,8 +12,9 @@ using System.Threading.Tasks;
 namespace NetworkLib
 {
 
-    public delegate void EventHandlerLowLevelSNet(byte[] buffer, TcpModuleLowLevelS tcpClient);
-    public class TcpModuleLowLevelS
+    public delegate void EventHandlerLowLevelSNet(byte[] buffer, TcpModule tcpClient);
+    public delegate void EventHandlerLowLevelSNetObject(object obj, TcpModule tcpClient);
+    public class TcpModule
     {
 
 
@@ -21,38 +24,41 @@ namespace NetworkLib
         private string m_Info;
 
         public event EventHandlerLowLevelSNet DataRecieved;
-        public event EventHandler Error;
+        public event EventHandlerLowLevelSNetObject DataRecievedObject;
+
+        //коды ошибок 100-невозможно запустить сервер;200-ошибка цикла приема;300-ошибка подключения к серверу;400 - ошибка передачи данных
+        public event EventHandler Error; 
         public event EventHandler ConnectionLost;
 
         private Socket m_Socket;
         private Socket m_Handler;
-        private int m_BufferSize = 1024;
+        private int m_BufferSize = 2048;
+        private bool m_Mode; // false-server true-клиент
 
-        public int BufferSize
+       
+
+        public TcpModule()
+        {
+
+        }
+
+        public bool Connected
         {
             get
             {
-                return m_BufferSize;
-            }
-
-            set
-            {
-                m_BufferSize = value;
+                if (m_Socket != null)
+                    return m_Socket.Connected;
+                else
+                    return false;
             }
         }
-
-        public TcpModuleLowLevelS()
-        {
-
-        }
-
         public void StartServer(int port)
         {
             try
             {
                 IPEndPoint ipPoint = new IPEndPoint(IPAddress.Any, port);
                 m_Socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-
+                m_Mode = false;
                 m_Socket.Bind(ipPoint);
 
                 m_ServerThread = new Thread(new ThreadStart(StartServerThread));
@@ -61,15 +67,19 @@ namespace NetworkLib
             catch (Exception e)
             {
                 m_Info = "on server err";
-
+                if (Error != null)
+                    Error("100", null);
             }
         }
         public void StopServer()
         {
-
-            m_Socket.Shutdown(SocketShutdown.Both);
-            m_Socket = null;
-
+            try {
+                if (m_Handler != null)
+                    m_Handler.Close();
+                m_Socket.Shutdown(SocketShutdown.Both);
+                m_Socket = null;
+            }
+            catch { }
         }
 
 
@@ -79,69 +89,87 @@ namespace NetworkLib
             while (true)
             {
                 m_Handler = m_Socket.Accept();
-                int bytes = 0;
-                List<byte> dataBuffer = new List<byte>();
-                byte[] tmp_buff = new byte[m_BufferSize];
-                bool BeginFound = false;
-                bool PacketBulded = false;
-                bool EndFound = false;
-                byte[] real_crc = new byte[4];
-                while (m_Handler.Connected)
-                {
-                    do
-                    {
-                        bytes = m_Handler.Receive(tmp_buff);
 
-                        byte[] real_buff = new byte[bytes];
-                        
-                        Array.Copy(tmp_buff, real_buff, real_buff.Length);
-                        if (FindFlag(real_buff, FlagBegin, true) && !BeginFound)
-                        {
-                            BeginFound = true;
-                            real_crc[0] = real_buff[FlagBegin.Length];
-                            real_crc[1] = real_buff[FlagBegin.Length + 1];
-                            real_crc[2] = real_buff[FlagBegin.Length + 2];
-                            real_crc[3] = real_buff[FlagBegin.Length + 3];
-                        }
-                        if (BeginFound && FindFlag(real_buff, FlagEnd, false) && !EndFound)
-                            EndFound = true;
-                       
-
-                        dataBuffer.AddRange(real_buff);
-                        if (BeginFound && EndFound)
-                        {
-
-                          
-
-                            if(real_crc[0] ==dataBuffer[FlagBegin.Length]&& real_crc[1] == dataBuffer[FlagBegin.Length + 1] && real_crc[2] == dataBuffer[FlagBegin.Length + 2] && real_crc[3] == dataBuffer[FlagBegin.Length + 3])
-                            {
-                                PacketBulded = true;
-                            }
-                        }
-                    }
-                    while (m_Handler.Available > 0);
-
-                    if (DataRecieved != null && PacketBulded)
-                    {
-                        byte[] send = new byte[dataBuffer.Count - FlagBegin.Length - FlagEnd.Length - 4];
-                        Array.Copy(dataBuffer.ToArray(), FlagBegin.Length + 4, send, 0, send.Length);
-                        DataRecieved(send, this);
-                        dataBuffer.Clear();
-                        PacketBulded = false;
-                        BeginFound = false;
-                        EndFound = false;
-                    }
+                try {
+                    SocetRecieve(m_Handler);
                 }
-
+                catch(Exception e)
+                {
+                    if (Error != null)
+                        Error("200", null);
+                }
             }
         }
+
+        private void SocetRecieve(Socket c)
+        {
+            int bytes = 0;
+            List<byte> dataBuffer = new List<byte>();
+            byte[] tmp_buff = new byte[m_BufferSize];
+            bool BeginFound = false;
+            bool PacketBulded = false;
+            bool EndFound = false;
+            byte[] real_crc = new byte[4];
+            while (c.Connected)
+            {
+                do
+                {
+                    try {
+                        bytes = c.Receive(tmp_buff);
+                    }
+                    catch { }
+                    byte[] real_buff = new byte[bytes];
+
+                    Array.Copy(tmp_buff, real_buff, real_buff.Length);
+                    if (FindFlag(real_buff, FlagBegin, true) && !BeginFound)
+                    {
+                        BeginFound = true;
+                        real_crc[0] = real_buff[FlagBegin.Length];
+                        real_crc[1] = real_buff[FlagBegin.Length + 1];
+                        real_crc[2] = real_buff[FlagBegin.Length + 2];
+                        real_crc[3] = real_buff[FlagBegin.Length + 3];
+                    }
+                    if (BeginFound && FindFlag(real_buff, FlagEnd, false) && !EndFound)
+                        EndFound = true;
+
+
+                    dataBuffer.AddRange(real_buff);
+                    if (BeginFound && EndFound)
+                    {
+
+
+
+                        if (real_crc[0] == dataBuffer[FlagBegin.Length] && real_crc[1] == dataBuffer[FlagBegin.Length + 1] && real_crc[2] == dataBuffer[FlagBegin.Length + 2] && real_crc[3] == dataBuffer[FlagBegin.Length + 3])
+                        {
+                            PacketBulded = true;
+                        }
+                    }
+                }
+                while (c.Available > 0);
+
+                if (PacketBulded)
+                {
+                    byte[] send = new byte[dataBuffer.Count - FlagBegin.Length - FlagEnd.Length - 4];
+                    Array.Copy(dataBuffer.ToArray(), FlagBegin.Length + 4, send, 0, send.Length);
+                    if(DataRecieved!=null)
+                        DataRecieved(send, this);
+                    if (DataRecievedObject != null)
+                        DataRecievedObject(ObjectFromByteArray(send, 0, send.Length),this);
+                    dataBuffer.Clear();
+                    PacketBulded = false;
+                    BeginFound = false;
+                    EndFound = false;
+                }
+            }
+        }
+
         public void ConnectToServer(string ip, int port)
         {
             try
             {
                 IPEndPoint ipPoint = new IPEndPoint(IPAddress.Parse(ip), port);
                 m_Socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-
+                m_Mode = true;
                 m_Socket.Connect(ipPoint);
                 m_ReadThread = new Thread(new ThreadStart(ReadThread));
                 m_ReadThread.Start();
@@ -149,44 +177,51 @@ namespace NetworkLib
             catch (Exception e)
             {
                 m_Info = "on client err";
-
+                if (Error != null)
+                    Error("300", null);
             }
         }
         private void ReadThread()
         {
             while (m_Socket.Connected)
             {
-                int bytes = 0;
-                List<byte> dataBuffer = new List<byte>();
-                byte[] tmp_buff = new byte[m_BufferSize];
-                do
-                {
-                    bytes = m_Socket.Receive(tmp_buff);
-                    dataBuffer.AddRange(tmp_buff);
-                    
-                }
-                while (m_Socket.Available > 0);
-
-                if (DataRecieved != null)
-                {
-                    DataRecieved(dataBuffer.ToArray(), null);
-                    dataBuffer.Clear();
-                }
+                SocetRecieve(m_Socket);
             }
         }
         private byte[] FlagBegin = new byte[] { 1, 5, 2, 45, 8, 4, 55, 77, 22, 43, 1, 0, 57 };
         private byte[] FlagEnd = new byte[] { 1, 5, 2, 46, 8, 4, 55, 77, 22, 43, 1, 88, 57 };
-        public void SendDataFromClient(byte[] data)
+        public void SendData(byte[] data)
         {
-            byte[] data_send = new byte[data.Length + FlagBegin.Length + FlagEnd.Length + 4];
-            Array.Copy(FlagBegin, 0, data_send, 0, FlagBegin.Length);
-            Array.Copy(CalculateCrc(data), 0, data_send, FlagBegin.Length, 4);
-            Array.Copy(data, 0, data_send, FlagBegin.Length + 4, data.Length);
-            Array.Copy(FlagEnd, 0, data_send, data_send.Length - FlagEnd.Length, FlagEnd.Length);
-            if (m_Socket.Connected)
+            try
             {
-                m_Socket.Send(data_send);
+                byte[] data_send = new byte[data.Length + FlagBegin.Length + FlagEnd.Length + 4];
+                Array.Copy(FlagBegin, 0, data_send, 0, FlagBegin.Length);
+                Array.Copy(CalculateCrc(data), 0, data_send, FlagBegin.Length, 4);
+                Array.Copy(data, 0, data_send, FlagBegin.Length + 4, data.Length);
+                Array.Copy(FlagEnd, 0, data_send, data_send.Length - FlagEnd.Length, FlagEnd.Length);
+                if (m_Mode)
+                {
+                    if (m_Socket.Connected)
+                    {
+                        m_Socket.Send(data_send);
+                    }
+                }
+                else
+                {
+                    if (m_Handler != null && m_Handler.Connected)
+                        m_Handler.Send(data_send);
+                }
             }
+            catch
+            {
+                if (Error != null)
+                    Error("400", null);
+            }
+        }
+
+        public void SendDataObject(object data)
+        {
+            SendData(GetByteArrayOfObject(data));
         }
         private bool FindFlag(byte[] array, byte[] flag,bool begin)
         {
@@ -216,21 +251,41 @@ namespace NetworkLib
             else
                 return false;
         }
-        public void SendDataFromServer(byte[] data)
+
+        private byte[] GetByteArrayOfObject(object obj)
         {
-            byte[] data_send = new byte[data.Length+FlagBegin.Length+FlagEnd.Length+4];
-            Array.Copy(FlagBegin, 0, data_send, 0, FlagBegin.Length);
-            Array.Copy(CalculateCrc(data), 0, data_send, FlagBegin.Length , 4);
-            Array.Copy(data, 0, data_send, FlagBegin.Length + 4, data.Length);
-            Array.Copy(FlagEnd, 0, data_send, data_send.Length - FlagEnd.Length, FlagEnd.Length);
+            BinaryFormatter _bf = new BinaryFormatter();
+            //_bf.TypeFormat = System.Runtime.Serialization.Formatters.FormatterTypeStyle.XsdString;
+            MemoryStream _ms = new MemoryStream();
+            _bf.Serialize(_ms, obj);
+            byte[] res = new byte[_ms.Length];
+            _ms.Position = 0;
+            _ms.Read(res, 0, res.Length);
+            _ms.Close();
 
-
-            if (m_Handler != null && m_Handler.Connected)
-                m_Handler.Send(data_send);
+            // object test = ObjectFromByteArray(res,0,res.Length);
+            return res;
         }
+        private object ObjectFromByteArray(byte[] array, int header_offset, int len)
+        {
+            BinaryFormatter _bf = new BinaryFormatter();
+            // _bf.TypeFormat = System.Runtime.Serialization.Formatters.FormatterTypeStyle.XsdString;
+            MemoryStream _ms = new MemoryStream(len);
+            _ms.Write(array, header_offset, len);
+            _ms.Position = 0;
+            object res = _bf.Deserialize(_ms);
+
+            _ms.Close();
+            return res;
+        }
+
         public void DisconnectFromServer()
         {
-            m_Socket.Disconnect(false);
+            try {
+                m_Socket.Disconnect(false);
+                m_ReadThread.Abort();
+            }
+            catch { }
         }
         #region таблица CRC
         // Таблица значений CRC 
