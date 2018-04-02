@@ -13,7 +13,7 @@ namespace NetworkLib
         public TestObject()
         {
             // Array = new int[1024*1024*10];
-            Array = new int[10000000];
+            Array = new int[10000];
             for (int i=0;i<m_Array.Length;i++)
             {
                 m_Array[i] = new Random((int)DateTime.Now.Ticks).Next();
@@ -31,6 +31,10 @@ namespace NetworkLib
             {
                 m_Array = value;
             }
+        }
+        public override string ToString()
+        {
+            return "Массив:" + m_Array.Length.ToString();
         }
     }
 }

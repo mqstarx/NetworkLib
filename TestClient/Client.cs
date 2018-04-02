@@ -14,63 +14,46 @@ namespace TestClient
 {
     public partial class Client : Form
     {
-        TcpModule tcp;
+        TcpModuleClient tcp;
        
         public Client()
         {
             InitializeComponent();
-           
+            tcp = new TcpModuleClient();
+            tcp.Error += Tcp_Error;
+            tcp.Connected += Tcp_Connected;
+            tcp.Recieved += Tcp_Recieved;
         }
 
-       
-
-        private void button1_Click(object sender, EventArgs e)
+        private void Tcp_Recieved(object obj, SocketData data)
         {
-             tcp = new TcpModule();
-              tcp.DataRecieved += Tcp_DataRecieved2;
-             // tcp.TcpSendProgress += Tcp_TcpSendProgress;
-              //tcp.Error += Tcp_Error;
-
-              tcp.ConnectToServer("192.168.100.13", 5454);
-           
-            
+            this.Invoke((new Action(() => MessageBox.Show("OnClient DataRecieved" + obj.ToString()))));
         }
 
-        private void Tcp_DataRecieved2(byte[] buffer, TcpModule tcpClient)
+        private void Tcp_Connected(object sender, EventArgs e)
         {
-           
+            this.Invoke((new Action(() => MessageBox.Show("OnClient" + sender.ToString()))));
         }
-
-        private void Tcp_TcpSendProgress(int uid, int all_count, int cur)
-        {
-            this.Invoke((new Action(() => label1.Text=uid+"||  "+all_count+@" \ "+cur )));
-        }
-
-        
 
         private void Tcp_Error(object sender, EventArgs e)
         {
-            this.Invoke((new Action(() => MessageBox.Show(sender.ToString()))));
+            this.Invoke((new Action(() => MessageBox.Show("OnClient" + sender.ToString()))));
         }
 
-      
-
-        private void button2_Click(object sender, EventArgs e)
+        private void button1_Click(object sender, EventArgs e)
         {
-            //  TestObject obj = new TestObject();
-            TestObject testObj = new TestObject();
-            tcp.SendDataObject(testObj);
-           
+            tcp.Connect("192.168.100.13",5454);
+
         }
 
         private void button3_Click(object sender, EventArgs e)
         {
-            tcp.DisconnectFromServer();
+           // tcp.Stop();
         }
 
-        private void Form1_FormClosing(object sender, FormClosingEventArgs e)
+        private void button2_Click(object sender, EventArgs e)
         {
-            
+            tcp.Send(new TestObject());
         }
     }
 }

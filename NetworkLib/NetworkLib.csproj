@@ -41,7 +41,9 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="TcpModule.cs" />
+    <Compile Include="SocketData.cs" />
+    <Compile Include="TcpModuleClient.cs" />
+    <Compile Include="TcpModuleServer.cs" />
     <Compile Include="TestObject.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

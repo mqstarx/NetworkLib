@@ -14,53 +14,35 @@ namespace TestServer
 {
     public partial class Server : Form
     {
-        TcpModule tcp;
        
+        TcpModuleServer tcpserv;
         public Server()
         {
             InitializeComponent();
+            tcpserv = new TcpModuleServer();
+            tcpserv.Error += Tcpserv_Error;
+            tcpserv.Recieved += Tcpserv_Recieved;
         
         }
 
+        private void Tcpserv_Recieved(object obj, SocketData data)
+        {
+            tcpserv.Send(data.Socket, obj);
+        }
+
+        private void Tcpserv_Error(object sender, EventArgs e)
+        {
+            this.Invoke((new Action(() => MessageBox.Show("OnServer"+sender.ToString()))));
+        }
 
         private void button1_Click(object sender, EventArgs e)
         {
-               tcp = new  TcpModule();
-
-            tcp.DataRecievedObject += Tcp_DataRecievedObject;
-             //  tcp.Error += Tcp_Error;
-               tcp.StartServer(5454);
-
-           
-        }
-
-        private void Tcp_DataRecievedObject(object obj, TcpModule tcpClient)
-        {
-            
-        }
-
-        private void Tcp_DataRecieved1(byte[] buffer, TcpModule tcpClient)
-        {
-            
-        }
-
-      
-        private void Tcp_Error(object sender, EventArgs e)
-        {
-            //this.Invoke((new Action(() => MessageBox.Show(sender.ToString()))));
-        }
-
-      
-
-        private void Form1_FormClosing(object sender, FormClosingEventArgs e)
-        {if(tcp!=null)
-            tcp.StopServer();
+            tcpserv.StartServer(5454);
         }
 
         private void button2_Click(object sender, EventArgs e)
         {
-            if (tcp != null)
-                tcp.StopServer();
+            tcpserv.StopServer();
         }
     }
 }
