@@ -9,51 +9,44 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-
+using SimpleTCP;
 namespace TestClient
 {
     public partial class Client : Form
     {
-        TcpModuleClient tcp;
-       
+
+        SimpleTcpClient tcpclient;
         public Client()
         {
             InitializeComponent();
-            tcp = new TcpModuleClient();
-            tcp.Error += Tcp_Error;
-            tcp.Connected += Tcp_Connected;
-            tcp.Recieved += Tcp_Recieved;
+            tcpclient = new SimpleTcpClient();
+            tcpclient.DataReceived += Tcpclient_DataReceived;
+            
         }
 
-        private void Tcp_Recieved(object obj, SocketData data)
+        private void Tcpclient_DataReceived(object sender, SimpleTCP.Message e)
         {
-            this.Invoke((new Action(() => MessageBox.Show("OnClient DataRecieved" + obj.ToString()))));
-        }
-
-        private void Tcp_Connected(object sender, EventArgs e)
-        {
-            this.Invoke((new Action(() => MessageBox.Show("OnClient" + sender.ToString()))));
-        }
-
-        private void Tcp_Error(object sender, EventArgs e)
-        {
-            this.Invoke((new Action(() => MessageBox.Show("OnClient" + sender.ToString()))));
+            //throw new NotImplementedException();
         }
 
         private void button1_Click(object sender, EventArgs e)
         {
-            tcp.Connect("192.168.100.13",5454);
+            tcpclient.Connect("192.168.100.13", 5454);
+           // tcp.Connect("192.168.100.13",5454);
 
         }
 
         private void button3_Click(object sender, EventArgs e)
         {
-           // tcp.Stop();
+            tcpclient.Disconnect();
         }
 
         private void button2_Click(object sender, EventArgs e)
         {
-            tcp.Send(new TestObject());
+            byte[] data = new byte[10000];
+            for (int i = 0; i < data.Length; i++)
+                data[i] = 0x34;
+            tcpclient.Write(data);
         }
     }
 }

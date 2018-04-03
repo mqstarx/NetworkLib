@@ -9,40 +9,50 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using NetworkLib;
 using System.Net.Sockets;
+using SimpleTCP;
 
 namespace TestServer
 {
     public partial class Server : Form
     {
        
-        TcpModuleServer tcpserv;
+      
+
+        SimpleTcpServer tcp_server;
         public Server()
         {
             InitializeComponent();
-            tcpserv = new TcpModuleServer();
-            tcpserv.Error += Tcpserv_Error;
-            tcpserv.Recieved += Tcpserv_Recieved;
+          
+
+            tcp_server = new SimpleTcpServer();
+            tcp_server.DataReceived += Tcp_server_DataReceived;
+            tcp_server.ClientConnected += Tcp_server_ClientConnected;
+
         
         }
 
-        private void Tcpserv_Recieved(object obj, SocketData data)
+        private void Tcp_server_ClientConnected(object sender, TcpClient e)
         {
-            tcpserv.Send(data.Socket, obj);
+            
         }
 
-        private void Tcpserv_Error(object sender, EventArgs e)
+        private void Tcp_server_DataReceived(object sender, SimpleTCP.Message e)
         {
-            this.Invoke((new Action(() => MessageBox.Show("OnServer"+sender.ToString()))));
+            e.Reply(e.Data);
         }
+
+      
+
+       
 
         private void button1_Click(object sender, EventArgs e)
         {
-            tcpserv.StartServer(5454);
+            tcp_server.Start(5454);
         }
 
         private void button2_Click(object sender, EventArgs e)
         {
-            tcpserv.StopServer();
+            tcp_server.Stop();
         }
     }
 }
