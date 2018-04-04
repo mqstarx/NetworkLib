@@ -91,8 +91,8 @@ namespace NetworkLib
                         s.Data.Clear();
                         GC.Collect();
                         GC.WaitForPendingFinalizers();
-                        s.Socket.Shutdown(SocketShutdown.Both);
-                        s.Socket.Close();
+                      //  s.Socket.Shutdown(SocketShutdown.Both);
+                        //s.Socket.Close();
                       
                     }
                     
