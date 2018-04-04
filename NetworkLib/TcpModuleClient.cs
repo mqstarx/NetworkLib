@@ -15,7 +15,7 @@ namespace NetworkLib
         public event EventHandler Error;
         public event EventHandlerRecievedObject Recieved;
         public event EventHandler Connected;
-        public event EventHandler DataSended;
+ 
         public TcpModuleClient()
         { }
 
@@ -44,12 +44,20 @@ namespace NetworkLib
 
         private void ConnectCallback(IAsyncResult ar)
         {
-            SocketData s = (SocketData)ar.AsyncState;
-            if(s.Socket.Connected)
+            try
             {
-                if (Connected != null)
-                    Connected("Connected", null);
-                s.Socket.BeginReceive(s.Buffer, 0, s.Buffer.Length, SocketFlags.None,ReadCallBack, s);
+                SocketData s = (SocketData)ar.AsyncState;
+                if (s.Socket.Connected)
+                {
+                    if (Connected != null)
+                        Connected("Connected", null);
+                    s.Socket.BeginReceive(s.Buffer, 0, s.Buffer.Length, SocketFlags.None, ReadCallBack, s);
+                }
+            }
+            catch (Exception e)
+            {
+                if (Error != null)
+                    Error(e.Message, null);
             }
 
         }
@@ -74,8 +82,7 @@ namespace NetworkLib
                     if (SocketData.FindFlag(real_buff, SocketData.FlagEnd, false))
                     {
 
-                        // if (real_crc[0] == s.Data[SocketData.FlagBegin.Length] && real_crc[1] == s.Data[SocketData.FlagBegin.Length + 1] && real_crc[2] == s.Data[SocketData.FlagBegin.Length + 2] && real_crc[3] == s.Data[SocketData.FlagBegin.Length + 3])
-                        //  {
+                       
                         byte[] send = new byte[s.Data.Count - SocketData.FlagBegin.Length - SocketData.FlagEnd.Length - 4];
                         Array.Copy(s.Data.ToArray(), SocketData.FlagBegin.Length + 4, send, 0, send.Length);
                         if (Recieved != null)
@@ -84,8 +91,11 @@ namespace NetworkLib
                         s.Data.Clear();
                         GC.Collect();
                         GC.WaitForPendingFinalizers();
-                        //  }
+                        s.Socket.Shutdown(SocketShutdown.Both);
+                        s.Socket.Close();
+                      
                     }
+                    
                 }
                 s.Socket.BeginReceive(s.Buffer, 0, s.Buffer.Length, SocketFlags.None, ReadCallBack, s);
             }
@@ -109,7 +119,7 @@ namespace NetworkLib
 
                 if (_client.Connected)
                 {
-                    _client.BeginSend(data_send, 0, data_send.Length, SocketFlags.None, SendCallback, new SocketData(_client, data_send));
+                    _client.BeginSend(data_send, 0, data_send.Length, SocketFlags.None,SendCallback,null);
                 }
 
             }
@@ -122,15 +132,15 @@ namespace NetworkLib
 
         }
 
-        private void SendCallback(IAsyncResult ar)
+      private void SendCallback(IAsyncResult ar)
         {
-            try
+       /*     try
             {
 
                   SocketData handler = (SocketData)ar.AsyncState;
                 /*  int bytesSent = handler.Socket.EndSend(ar);
                   handler.Socket.Shutdown(SocketShutdown.Both);
-                  handler.Socket.Close();*/
+                  handler.Socket.Close();
                 if (DataSended != null)
                     DataSended(SocketData.ObjectFromByteArray(handler.Buffer, 0, handler.Buffer.Length),null);
 
@@ -140,13 +150,13 @@ namespace NetworkLib
 
                 if (Error != null)
                     Error(e.Message, null);
-            }
+            }*/
         }
 
-        public void Stop()
+      /*  public void Stop()
         {
             _client.Shutdown(SocketShutdown.Both);
             _client.Close();
-        }
+        }*/
     }
 }

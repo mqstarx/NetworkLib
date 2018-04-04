@@ -15,44 +15,36 @@ namespace TestServer
 {
     public partial class Server : Form
     {
-       
-      
 
-        SimpleTcpServer tcp_server;
+
+
+        TcpModuleServer tcpserver;
         public Server()
         {
             InitializeComponent();
+            tcpserver = new TcpModuleServer();
+            tcpserver.Error += Tcpserver_Error;
+            tcpserver.Recieved += Tcpserver_Recieved;
           
-
-            tcp_server = new SimpleTcpServer();
-            tcp_server.DataReceived += Tcp_server_DataReceived;
-            tcp_server.ClientConnected += Tcp_server_ClientConnected;
 
         
         }
 
-        private void Tcp_server_ClientConnected(object sender, TcpClient e)
+        private void Tcpserver_Recieved(object obj, SocketData data)
         {
-            
+           
         }
 
-        private void Tcp_server_DataReceived(object sender, SimpleTCP.Message e)
+        private void Tcpserver_Error(object sender, EventArgs e)
         {
-            e.Reply(e.Data);
+            Console.WriteLine(sender.ToString());
         }
-
-      
-
-       
 
         private void button1_Click(object sender, EventArgs e)
         {
-            tcp_server.Start(5454);
+            tcpserver.StartServer(5454);
         }
 
-        private void button2_Click(object sender, EventArgs e)
-        {
-            tcp_server.Stop();
-        }
+        
     }
 }

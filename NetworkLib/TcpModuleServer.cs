@@ -30,13 +30,9 @@ namespace NetworkLib
             try
             {
                 _ServerSocket.Bind(ipPoint);
-                _ServerSocket.Listen(100);
-             //   while (true)
-              //  {
-                //    allDone.Reset();
-                    _ServerSocket.BeginAccept(AcceptClient, new SocketData(_ServerSocket, new byte[m_BufferSize]));
-              //      allDone.WaitOne();
-             //   }
+                _ServerSocket.Listen(1000);
+               _ServerSocket.BeginAccept(AcceptClient, new SocketData(_ServerSocket, new byte[m_BufferSize]));
+             
             }
             catch(Exception e)
             {
@@ -46,12 +42,10 @@ namespace NetworkLib
         }
 
         private void AcceptClient(IAsyncResult ar)
-        {
-            //  allDone.Set();
+        { 
             try
             {
                 SocketData s = (SocketData)ar.AsyncState;
-
                 Socket _clientSocket = s.Socket.EndAccept(ar);
                 _clientSocket.BeginReceive(s.Buffer, 0, s.Buffer.Length, SocketFlags.None, RecievedData, new SocketData(_clientSocket, s.Buffer));
                 s.Socket.BeginAccept(AcceptClient, new SocketData(s.Socket, new byte[m_BufferSize]));
@@ -63,9 +57,7 @@ namespace NetworkLib
             }
             
         }
-      //  bool BeginFound = false;
-
-       // bool EndFound = false;
+    
         private void RecievedData(IAsyncResult ar)
         {
             SocketData s = (SocketData)ar.AsyncState;
@@ -87,8 +79,7 @@ namespace NetworkLib
                     if (SocketData.FindFlag(real_buff, SocketData.FlagEnd, false))
                     {
                         
-                       // if (real_crc[0] == s.Data[SocketData.FlagBegin.Length] && real_crc[1] == s.Data[SocketData.FlagBegin.Length + 1] && real_crc[2] == s.Data[SocketData.FlagBegin.Length + 2] && real_crc[3] == s.Data[SocketData.FlagBegin.Length + 3])
-                      //  {
+                 
                             byte[] send = new byte[s.Data.Count - SocketData.FlagBegin.Length - SocketData.FlagEnd.Length - 4];
                             Array.Copy(s.Data.ToArray(), SocketData.FlagBegin.Length + 4, send, 0, send.Length);
                             if (Recieved != null)
@@ -97,7 +88,7 @@ namespace NetworkLib
                             s.Data.Clear();
                             GC.Collect();
                             GC.WaitForPendingFinalizers();
-                      //  }
+                     
                     }
                 }
                 s.Socket.BeginReceive(s.Buffer, 0, s.Buffer.Length, SocketFlags.None, RecievedData, s);
@@ -137,13 +128,13 @@ namespace NetworkLib
 
         private  void SendCallback(IAsyncResult ar)
         {
-            try
+          /*  try
             {
 
               /*  SocketData handler = (SocketData)ar.AsyncState;            
                 int bytesSent = handler.Socket.EndSend(ar);
                 handler.Socket.Shutdown(SocketShutdown.Both);
-                handler.Socket.Close();*/
+                handler.Socket.Close();
 
             }
             catch (Exception e)
@@ -151,13 +142,15 @@ namespace NetworkLib
 
                 if (Error != null)
                     Error(e.Message, null);
-            }
+            }*/
         }
 
-        public void StopServer()
+       /* public void StopServer()
         {
+            
            // _ServerSocket.Shutdown(SocketShutdown.Both);
-            _ServerSocket.Close();
-        }
+            //_ServerSocket.Close();
+
+        }*/
     }
 }

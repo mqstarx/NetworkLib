@@ -15,19 +15,27 @@ namespace TestClient
     public partial class Client : Form
     {
 
-        SimpleTcpClient tcpclient;
+        TcpModuleClient tcpclient;
         public Client()
         {
             InitializeComponent();
-            tcpclient = new SimpleTcpClient();
-            tcpclient.DataReceived += Tcpclient_DataReceived;
+            tcpclient = new TcpModuleClient();
+            tcpclient.Connected += Tcpclient_Connected;
+            tcpclient.Recieved += Tcpclient_Recieved;
             
         }
 
-        private void Tcpclient_DataReceived(object sender, SimpleTCP.Message e)
+        private void Tcpclient_Recieved(object obj, SocketData data)
         {
-            //throw new NotImplementedException();
+           
         }
+
+        private void Tcpclient_Connected(object sender, EventArgs e)
+        {
+            this.Invoke((new Action(() =>MessageBox.Show("connected"))));
+        }
+
+       
 
         private void button1_Click(object sender, EventArgs e)
         {
@@ -36,17 +44,14 @@ namespace TestClient
 
         }
 
-        private void button3_Click(object sender, EventArgs e)
-        {
-            tcpclient.Disconnect();
-        }
+       
 
         private void button2_Click(object sender, EventArgs e)
         {
             byte[] data = new byte[10000];
             for (int i = 0; i < data.Length; i++)
                 data[i] = 0x34;
-            tcpclient.Write(data);
+            tcpclient.Send(data);
         }
     }
 }
